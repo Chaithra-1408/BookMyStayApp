@@ -1,24 +1,6 @@
-/**
- * =========================================================
- * MAIN CLASS - UseCase4RoomSearch
- * =========================================================
- *
- * Use Case 4: Room Search & Availability Check
- *
- * Description:
- * This class represents the entry point of the
- * Hotel Booking Management System.
- *
- * At this stage, the application:
- * - Enables guests to search available rooms
- * - Performs read-only access to inventory
- * - Filters unavailable room types
- *
- * @author Developer
- * @version 4.0
- */
-
 import java.util.HashMap;
+import java.util.Queue;
+import java.util.LinkedList;
 
 // Abstract Class
 abstract class Room {
@@ -33,14 +15,6 @@ abstract class Room {
     }
 
     public abstract void displayRoomDetails();
-
-    public String getRoomType() {
-        return roomType;
-    }
-
-    public double getPrice() {
-        return price;
-    }
 }
 
 // SingleRoom
@@ -85,7 +59,7 @@ class SuiteRoom extends Room {
     }
 }
 
-// Centralized Inventory
+// RoomInventory - HashMap based
 class RoomInventory {
     private HashMap<String, Integer> inventory;
 
@@ -93,7 +67,7 @@ class RoomInventory {
         inventory = new HashMap<>();
         inventory.put("Single Room", 5);
         inventory.put("Double Room", 3);
-        inventory.put("Suite Room", 0); // intentionally 0 to test filtering
+        inventory.put("Suite Room", 2);
     }
 
     public int getAvailability(String roomType) {
@@ -102,10 +76,6 @@ class RoomInventory {
 
     public void updateAvailability(String roomType, int count) {
         inventory.put(roomType, count);
-    }
-
-    public HashMap<String, Integer> getInventory() {
-        return inventory;
     }
 
     public void displayInventory() {
@@ -118,52 +88,59 @@ class RoomInventory {
     }
 }
 
-// Search Service - Read-Only Access
-// Separation of Concerns - isolated from booking logic
-class RoomSearchService {
+// Reservation - represents guest's intent to book
+class Reservation {
+    private String guestName;
+    private String roomType;
 
-    private RoomInventory roomInventory;
-    private HashMap<String, Room> roomCatalog;
-
-    public RoomSearchService(RoomInventory roomInventory) {
-        this.roomInventory = roomInventory;
-
-        // Domain Model Usage - room objects provide details
-        roomCatalog = new HashMap<>();
-        roomCatalog.put("Single Room", new SingleRoom());
-        roomCatalog.put("Double Room", new DoubleRoom());
-        roomCatalog.put("Suite Room", new SuiteRoom());
+    public Reservation(String guestName, String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
     }
 
-    // Read-Only Search - does not modify inventory
-    public void searchAvailableRooms() {
-        System.out.println("========== Available Rooms ==========");
+    public String getGuestName() {
+        return guestName;
+    }
 
-        boolean anyAvailable = false;
+    public String getRoomType() {
+        return roomType;
+    }
 
-        // Defensive Programming - check validity before display
-        for (String roomType : roomCatalog.keySet()) {
-
-            // Validation Logic - filter out zero availability
-            int availability = roomInventory.getAvailability(roomType);
-            if (availability > 0) {
-                anyAvailable = true;
-                System.out.println("------------------------------");
-                roomCatalog.get(roomType).displayRoomDetails();
-                System.out.println("Availability : "
-                        + availability + " rooms available");
-            }
-        }
-
-        if (!anyAvailable) {
-            System.out.println("No rooms available at the moment.");
-        }
-
-        System.out.println("======================================");
-        // System state remains unchanged - Inventory as State Holder
+    public void displayReservation() {
+        System.out.println("Guest Name : " + guestName);
+        System.out.println("Room Type  : " + roomType);
     }
 }
 
-public class HotelBookingApp {
+// Booking Request Queue - FIFO principle
+// Decoupling Request Intake from Allocation
+class BookingRequestQueue {
 
-    public static void ma
+    // Queue Data Structure - preserves arrival order
+    private Queue<Reservation> bookingQueue;
+
+    public BookingRequestQueue() {
+        bookingQueue = new LinkedList<>();
+    }
+
+    // Add request to queue - FIFO
+    // Fairness - no request can bypass another
+    public void addRequest(Reservation reservation) {
+        bookingQueue.add(reservation);
+        System.out.println("Booking request added for : "
+                + reservation.getGuestName()
+                + " | Room Type : " + reservation.getRoomType());
+    }
+
+    // Display all queued requests
+    // Request Ordering - insertion order preserved
+    public void displayQueue() {
+        System.out.println("===== Booking Request Queue =====");
+        if (bookingQueue.isEmpty()) {
+            System.out.println("No pending requests.");
+        } else {
+            int position = 1;
+            for (Reservation r : bookingQueue) {
+                System.out.println("Position " + position + ":");
+                r.displayReservation();
+                positio
