@@ -1,8 +1,8 @@
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Stack;
+import java.util.LinkedList;
+import java.util.Queue;
 
 // Abstract Class
 abstract class Room {
@@ -65,35 +65,43 @@ class SuiteRoom extends Room {
     }
 }
 
-// RoomInventory
+// Thread-Safe Room Inventory
+// Shared Mutable State - protected by synchronization
 class RoomInventory {
     private HashMap<String, Integer> inventory;
 
     public RoomInventory() {
         inventory = new HashMap<>();
-        inventory.put("Single Room", 5);
-        inventory.put("Double Room", 3);
-        inventory.put("Suite Room", 2);
+        inventory.put("Single Room", 3);
+        inventory.put("Double Room", 2);
+        inventory.put("Suite Room", 1);
     }
 
-    public int getAvailability(String roomType) {
+    // Synchronized Access - critical section
+    // Prevents interleaving operations
+    public synchronized int getAvailability(
+            String roomType) {
         return inventory.getOrDefault(roomType, 0);
     }
 
-    public void updateAvailability(String roomType,
-                                   int count) {
-        inventory.put(roomType, count);
+    // Critical Section - exclusive thread access
+    public synchronized boolean allocateRoom(
+            String roomType) {
+        int available = getAvailability(roomType);
+        if (available > 0) {
+            inventory.put(roomType, available - 1);
+            return true;
+        }
+        return false;
     }
 
-    // Inventory Restoration - increment after cancellation
-    public void restoreAvailability(String roomType) {
+    public synchronized void restoreAvailability(
+            String roomType) {
         int current = getAvailability(roomType);
         inventory.put(roomType, current + 1);
-        System.out.println("Inventory restored for : "
-                + roomType);
     }
 
-    public void displayInventory() {
+    public synchronized void displayInventory() {
         System.out.println("========== Room Inventory ==========");
         for (String roomType : inventory.keySet()) {
             System.out.println(roomType + " : "
@@ -104,13 +112,85 @@ class RoomInventory {
     }
 }
 
-// Reservation
-class Reservation {
-    private String reservationId;
+// Booking Request
+class BookingRequest {
     private String guestName;
     private String roomType;
-    private int numberOfNights;
-    private double totalCost;
-    private boolean isCancelled;
 
-    public Reservation(String r
+    public BookingRequest(String guestName,
+                          String roomType) {
+        this.guestName = guestName;
+        this.roomType = roomType;
+    }
+
+    public String getGuestName() {
+        return guestName;
+    }
+
+    public String getRoomType() {
+        return roomType;
+    }
+}
+
+// Concurrent Booking Processor
+// Thread Safety - implements Runnable
+class BookingProcessor implements Runnable {
+
+    private String guestName;
+    private String roomType;
+    private RoomInventory roomInventory;
+
+    public BookingProcessor(String guestName,
+                            String roomType,
+                            RoomInventory roomInventory) {
+        this.guestName = guestName;
+        this.roomType = roomType;
+        this.roomInventory = roomInventory;
+    }
+
+    // Synchronized Access inside run()
+    @Override
+    public void run() {
+        // Critical Section - one thread at a time
+        boolean allocated =
+                roomInventory.allocateRoom(roomType);
+
+        if (allocated) {
+            System.out.println("Booking confirmed for "
+                    + guestName + " | Room : " + roomType
+                    + " | Thread : "
+                    + Thread.currentThread().getName());
+        } else {
+            System.out.println("Booking failed for "
+                    + guestName + " | Room : " + roomType
+                    + " | No rooms available"
+                    + " | Thread : "
+                    + Thread.currentThread().getName());
+        }
+    }
+}
+
+public class HotelBookingApp {
+
+    public static void main(String[] args)
+            throws InterruptedException {
+
+        // UC1: Welcome Message
+        System.out.println(
+                "Welcome to the Hotel Booking Management System");
+        System.out.println("Application Name : BookMyStayApp");
+        System.out.println("Version          : 11.0");
+        System.out.println("System initialized successfully.");
+        System.out.println("====================================");
+
+        // UC2: Room Objects
+        Room singleRoom = new SingleRoom();
+        Room doubleRoom = new DoubleRoom();
+        Room suiteRoom = new SuiteRoom();
+
+        System.out.println("---------- Single Room ----------");
+        singleRoom.displayRoomDetails();
+        System.out.println("---------- Double Room ----------");
+        doubleRoom.displayRoomDetails();
+        System.out.println("---------- Suite Room ----------");
+        suiteRoom.displayRoomDetails();
